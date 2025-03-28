@@ -16,6 +16,10 @@ inputs:
     required: true
 
   # Optional
+  verify:
+    description: "Whether to verify the code signature after signing"
+    required: false
+    default: "true"
   apple-notary-password:
     description: "The Apple Developer account password to use in notarization"
     required: false
@@ -328,8 +332,10 @@ runs:
         # Force the codesignature
         codesign --force ${{ inputs.options }} -s "${{ steps.code-sign-action-internal.outputs.signid }}" "${{ steps.code-sign-action-internal.outputs.file }}"
 
-        # Verify the code signature
-        codesign -v "${{ steps.code-sign-action-internal.outputs.file }}" --verbose
+        # Verify the code signature if enabled
+        if [ "${{ inputs.verify }}" == "true" ]; then
+          codesign -v "${{ steps.code-sign-action-internal.outputs.file }}" --verbose
+        fi
 
     # signing with signtool on windows
     - name: Signing with ${{ steps.code-sign-action-internal.outputs.signtool }} (${{ steps.code-sign-action-internal.outputs.os }})
@@ -365,8 +371,12 @@ runs:
         # sign and verify
         Write-Output "Trying to sign ${{ steps.code-sign-action-internal.outputs.file }} with $signtool..."
         & $signtool sign -f "${{ steps.code-sign-action-internal.outputs.signcert }}" -p "${{ inputs.certificate-password }}" -fd sha256 -tr "http://timestamp.comodoca.com/?td=sha256" -td sha256 ${{ inputs.options }} -as -v "${{ steps.code-sign-action-internal.outputs.file }}"
-        Write-Output "Verifying $file has been signed with the signtool..."
-        & $signtool verify -pa -v "${{ steps.code-sign-action-internal.outputs.file }}"
+
+        # Verify the signature if enabled
+        if ("${{ inputs.verify }}" -eq "true") {
+          Write-Output "Verifying $file has been signed with the signtool..."
+          & $signtool verify -pa -v "${{ steps.code-sign-action-internal.outputs.file }}"
+        }
 
     - name: Signing with ${{ steps.code-sign-action-internal.outputs.signtool }} (${{ steps.code-sign-action-internal.outputs.os }})
       if: steps.code-sign-action-internal.outputs.signtool == 'keylocker' || steps.code-sign-action-internal.outputs.signtool == 'smctl'
